@@ -560,6 +560,8 @@ function HoursAxisTick(props) {
 
 function FlatXAxisTick(props) {
   const { x, y, payload } = props;
+  const raw = String(payload?.value ?? "");
+  const compact = raw.replace("%", "");
   return html`
     <g transform=${`translate(${x},${y})`}>
       <text
@@ -567,9 +569,9 @@ function FlatXAxisTick(props) {
         y=${16}
         textAnchor="middle"
         fill="#5a6679"
-        fontSize="12"
+        fontSize="11"
       >
-        ${payload?.value ?? ""}
+        ${compact}
       </text>
     </g>
   `;
@@ -1803,7 +1805,8 @@ function App() {
                       <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
                       <${XAxis}
                         dataKey="bin"
-                        interval=${0}
+                        interval="preserveStartEnd"
+                        minTickGap=${16}
                         height=${54}
                         tickMargin=${8}
                         tick=${(props) =>
