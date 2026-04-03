@@ -559,7 +559,7 @@ function HoursAxisTick(props) {
 }
 
 function FlatXAxisTick(props) {
-  const { x, y, payload } = props;
+  const { x, y, payload, onAxisClick, isSelected } = props;
   const raw = String(payload?.value ?? "");
   const compact = raw.replace("%", "");
   return html`
@@ -568,8 +568,10 @@ function FlatXAxisTick(props) {
         x=${0}
         y=${16}
         textAnchor="middle"
-        fill="#5a6679"
+        className=${`axis-text ${isSelected ? "axis-text-selected" : ""}`}
         fontSize="11"
+        onClick=${() => onAxisClick && onAxisClick(payload?.value)}
+        style=${{ cursor: onAxisClick ? "pointer" : "default" }}
       >
         ${compact}
       </text>
@@ -1810,7 +1812,11 @@ function App() {
                         height=${54}
                         tickMargin=${8}
                         tick=${(props) =>
-                          html`<${FlatXAxisTick} ...${props} />`}
+                          html`<${FlatXAxisTick}
+                            ...${props}
+                            onAxisClick=${handleUtilAxisClick}
+                            isSelected=${selectedUtilBinSet.has(props.payload?.value)}
+                          />`}
                       />
                       <${YAxis} allowDecimals=${false} />
                       <${Tooltip}
@@ -1831,11 +1837,16 @@ function App() {
                           (item) =>
                             html`<${Cell}
                               key=${`util-${item.bin}`}
-                              cursor="default"
+                              cursor="pointer"
                               fill=${item.count ? "#2563eb" : "#cbd5e1"}
-                              opacity=${1}
-                              stroke="transparent"
-                              strokeWidth=${0}
+                              opacity=${selectedUtilBins.length
+                                ? selectedUtilBinSet.has(item.bin)
+                                  ? 1
+                                  : 0.22
+                                : 1}
+                              stroke=${selectedUtilBinSet.has(item.bin) ? "#0f172a" : "transparent"}
+                              strokeWidth=${selectedUtilBinSet.has(item.bin) ? 1.2 : 0}
+                              onClick=${() => handleUtilBarClick(item.bin)}
                             />`,
                         )}
                       </${Bar}>
@@ -1860,7 +1871,11 @@ function App() {
                         height=${54}
                         tickMargin=${8}
                         tick=${(props) =>
-                          html`<${FlatXAxisTick} ...${props} />`}
+                          html`<${FlatXAxisTick}
+                            ...${props}
+                            onAxisClick=${handleBillableHoursAxisClick}
+                            isSelected=${selectedBillableHourBinSet.has(props.payload?.value)}
+                          />`}
                       />
                       <${YAxis} allowDecimals=${false} />
                       <${Tooltip}
@@ -1881,11 +1896,16 @@ function App() {
                           (item) =>
                             html`<${Cell}
                               key=${`hours-${item.bin}`}
-                              cursor="default"
+                              cursor="pointer"
                               fill=${item.count ? "#4F46E5" : "#cbd5e1"}
-                              opacity=${1}
-                              stroke="transparent"
-                              strokeWidth=${0}
+                              opacity=${selectedBillableHourBins.length
+                                ? selectedBillableHourBinSet.has(item.bin)
+                                  ? 1
+                                  : 0.22
+                                : 1}
+                              stroke=${selectedBillableHourBinSet.has(item.bin) ? "#0f172a" : "transparent"}
+                              strokeWidth=${selectedBillableHourBinSet.has(item.bin) ? 1.2 : 0}
+                              onClick=${() => handleBillableHoursBarClick(item.bin)}
                             />`,
                         )}
                       </${Bar}>
