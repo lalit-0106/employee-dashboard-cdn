@@ -3,6 +3,7 @@ import React, {
   useMemo,
   useRef,
   useState,
+  useTransition,
 } from "https://esm.sh/react@18.3.1";
 import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
 import htm from "https://esm.sh/htm@3.1.1";
@@ -557,19 +558,40 @@ function HoursAxisTick(props) {
   `;
 }
 
+function FlatXAxisTick(props) {
+  const { x, y, payload } = props;
+  return html`
+    <g transform=${`translate(${x},${y})`}>
+      <text
+        x=${0}
+        y=${16}
+        textAnchor="middle"
+        fill="#5a6679"
+        fontSize="12"
+      >
+        ${payload?.value ?? ""}
+      </text>
+    </g>
+  `;
+}
+
 function SegmentValueLabel(props) {
-  const { x = 0, y = 0, width = 0, height = 0, value, visible = true } = props;
+  const { x, y, width, height, value, viewBox, visible = true } = props;
   if (!visible) return null;
   const num = Number(value);
   if (!Number.isFinite(num) || num === 0) return null;
-  // Keep labels clear and consistent:
-  // - show only when the segment is wide enough
-  // - always center inside the segment
-  if (width < 18) return null;
+  const barX = Number.isFinite(x) ? x : Number(viewBox?.x ?? 0);
+  const barY = Number.isFinite(y) ? y : Number(viewBox?.y ?? 0);
+  const barWidth = Number.isFinite(width) ? width : Number(viewBox?.width ?? 0);
+  const barHeight = Number.isFinite(height) ? height : Number(viewBox?.height ?? 0);
+  // Show labels only when they fit comfortably inside the segment.
+  if (!Number.isFinite(barWidth) || !Number.isFinite(barHeight) || barWidth < 18 || barHeight < 10) {
+    return null;
+  }
 
-  const tx = x + width / 2;
-  const ty = y + height / 2 + 4;
-  const fontSize = width < 30 ? 12 : 16;
+  const tx = barX + barWidth / 2;
+  const ty = barY + barHeight / 2 + 4;
+  const fontSize = barWidth < 24 ? 12 : 16;
 
   return html`
     <text
@@ -723,6 +745,7 @@ function MultiSelectDropdown({
 
 function App() {
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [isDrillPending, startDrillTransition] = useTransition();
   const [scope, setScope] = useState("Billable & Shadow");
   const [analyzeBy, setAnalyzeBy] = useState("Accounts");
   const [selectedValues, setSelectedValues] = useState([]);
@@ -771,8 +794,8 @@ function App() {
     }
     const visibleCategories = new Set(getVisibleCategoriesForScope(scope));
     rows = rows.filter((row) => visibleCategories.has(row.allocationCategory));
-
-    rows = applyPairFilter(rows, chartPairs, dimensionKey);
+    // Keep Analyze-by dropdown options stable during chart point selection.
+    // Chart pair selection should highlight/filter visuals, not collapse option lists.
     rows = applyPracticeGradeFilters(rows, selectedPractices, selectedGrades);
 
     const stats = buildUtilizationEmployeeStats(rows);
@@ -799,7 +822,6 @@ function App() {
     analyzeBy,
     drilledAccountFilter,
     scope,
-    chartPairs,
     dimensionKey,
     selectedPractices,
     selectedGrades,
@@ -1002,9 +1024,10 @@ function App() {
   }, [tableBase, searchText]);
 
   const chartCategories = useMemo(() => {
-    if (selectedValues.length) return selectedValues;
-    // Keep a fixed axis order so selected bars do not jump/reorder on cross-filter interactions.
-    return defaultDimensionOptions;
+    // Preserve baseline order so selected rows do not jump position.
+    if (!selectedValues.length) return defaultDimensionOptions;
+    const selectedSet = new Set(selectedValues);
+    return defaultDimensionOptions.filter((name) => selectedSet.has(name));
   }, [selectedValues, defaultDimensionOptions]);
 
   const chartData = useMemo(
@@ -1137,6 +1160,54 @@ function App() {
   const visibleCategorySet = useMemo(
     () => new Set(getVisibleCategoriesForScope(scope)),
     [scope],
+  );
+  const mainHasBillable = useMemo(
+    () => visibleCategorySet.has("Billable") && chartData.some((row) => row.billable > 0),
+    [visibleCategorySet, chartData],
+  );
+  const mainHasMandatoryShadow = useMemo(
+    () =>
+      visibleCategorySet.has("Mandatory Shadow")
+      && chartData.some((row) => row.mandatoryShadow > 0),
+    [visibleCategorySet, chartData],
+  );
+  const mainHasOptionalShadow = useMemo(
+    () =>
+      visibleCategorySet.has("Optional Shadow")
+      && chartData.some((row) => row.optionalShadow > 0),
+    [visibleCategorySet, chartData],
+  );
+  const practiceHasBillable = useMemo(
+    () => visibleCategorySet.has("Billable") && practiceData.some((row) => row.billable > 0),
+    [visibleCategorySet, practiceData],
+  );
+  const practiceHasMandatoryShadow = useMemo(
+    () =>
+      visibleCategorySet.has("Mandatory Shadow")
+      && practiceData.some((row) => row.mandatoryShadow > 0),
+    [visibleCategorySet, practiceData],
+  );
+  const practiceHasOptionalShadow = useMemo(
+    () =>
+      visibleCategorySet.has("Optional Shadow")
+      && practiceData.some((row) => row.optionalShadow > 0),
+    [visibleCategorySet, practiceData],
+  );
+  const gradeHasBillable = useMemo(
+    () => visibleCategorySet.has("Billable") && gradeData.some((row) => row.billable > 0),
+    [visibleCategorySet, gradeData],
+  );
+  const gradeHasMandatoryShadow = useMemo(
+    () =>
+      visibleCategorySet.has("Mandatory Shadow")
+      && gradeData.some((row) => row.mandatoryShadow > 0),
+    [visibleCategorySet, gradeData],
+  );
+  const gradeHasOptionalShadow = useMemo(
+    () =>
+      visibleCategorySet.has("Optional Shadow")
+      && gradeData.some((row) => row.optionalShadow > 0),
+    [visibleCategorySet, gradeData],
   );
 
   const mainAxisWidth = useMemo(() => {
@@ -1379,10 +1450,11 @@ function App() {
   };
 
   const getLabelRowName = (labelProps, rows) => {
+    const rowNameSet = new Set(rows.map((item) => item.name));
     const direct = labelProps?.payload?.name;
-    if (direct) return direct;
+    if (direct && rowNameSet.has(direct)) return direct;
     const nested = labelProps?.payload?.payload?.name;
-    if (nested) return nested;
+    if (nested && rowNameSet.has(nested)) return nested;
     const rawIndex = labelProps?.index ?? labelProps?.dataIndex ?? labelProps?.payload?.index;
     const idx = Number(rawIndex);
     if (Number.isFinite(idx) && idx >= 0 && idx < rows.length) {
@@ -1423,29 +1495,39 @@ function App() {
       return;
     }
 
-    setDrillSnapshot({
-      analyzeBy,
-      selectedValues: [...selectedValues],
-      chartPairs: [...chartPairs],
-      drilledAccountFilter: [...drilledAccountFilter],
-    });
-    setAnalyzeBy("Projects");
-    setDrilledAccountFilter([...drillDownAccounts]);
-    setSelectedValues([]);
-    setChartPairs([]);
-    setHint(
-      `Drilled down to Projects for ${drillDownAccounts.length} account(s): ${drillDownAccounts.join(", ")}`,
+    const accountSet = new Set(drillDownAccounts);
+    const drillProjects = allProjects.filter((projectName) =>
+      DATA.some((row) => accountSet.has(row.accountName) && row.projectName === projectName),
     );
+
+    startDrillTransition(() => {
+      setDrillSnapshot({
+        analyzeBy,
+        selectedValues: [...selectedValues],
+        chartPairs: [...chartPairs],
+        drilledAccountFilter: [...drilledAccountFilter],
+      });
+      setAnalyzeBy("Projects");
+      setDrilledAccountFilter([...drillDownAccounts]);
+      // Select all related projects on drill-down (Power BI-like behavior).
+      setSelectedValues(drillProjects);
+      setChartPairs([]);
+      setHint(
+        `Drilled down to Projects for ${drillDownAccounts.length} account(s): ${drillDownAccounts.join(", ")}`,
+      );
+    });
   };
 
   const handleDrillUpToAccounts = () => {
     if (analyzeBy !== "Projects" || !drillSnapshot) return;
-    setAnalyzeBy(drillSnapshot.analyzeBy || "Accounts");
-    setDrilledAccountFilter(drillSnapshot.drilledAccountFilter || []);
-    setSelectedValues(drillSnapshot.selectedValues || []);
-    setChartPairs(drillSnapshot.chartPairs || []);
-    setHint("Drilled up to previous account selection context.");
-    setDrillSnapshot(null);
+    startDrillTransition(() => {
+      setAnalyzeBy(drillSnapshot.analyzeBy || "Accounts");
+      setDrilledAccountFilter(drillSnapshot.drilledAccountFilter || []);
+      setSelectedValues(drillSnapshot.selectedValues || []);
+      setChartPairs(drillSnapshot.chartPairs || []);
+      setHint("Drilled up to previous account selection context.");
+      setDrillSnapshot(null);
+    });
   };
 
   const clearTrendFilters = () => {
@@ -1529,8 +1611,6 @@ function App() {
         <button className="btn" onClick=${clearChartSelection}>Clear Chart Selection</button>
       </section>
 
-      ${hint ? html`<div className="hint">${hint}</div>` : null}
-
       <section className="kpi-grid">
         ${kpis.map(
           (item, idx) => html`
@@ -1604,7 +1684,7 @@ function App() {
                     }}
                   />
                   <${Legend} />
-                  ${visibleCategorySet.has("Billable")
+                  ${mainHasBillable
                     ? html`
                         <${Bar}
                           dataKey="billable"
@@ -1634,7 +1714,7 @@ function App() {
                         </${Bar}>
                       `
                     : null}
-                  ${visibleCategorySet.has("Mandatory Shadow")
+                  ${mainHasMandatoryShadow
                     ? html`
                         <${Bar}
                           dataKey="mandatoryShadow"
@@ -1668,7 +1748,7 @@ function App() {
                         </${Bar}>
                       `
                     : null}
-                  ${visibleCategorySet.has("Optional Shadow")
+                  ${mainHasOptionalShadow
                     ? html`
                         <${Bar}
                           dataKey="optionalShadow"
@@ -1724,11 +1804,10 @@ function App() {
                       <${XAxis}
                         dataKey="bin"
                         interval=${0}
+                        height=${54}
+                        tickMargin=${8}
                         tick=${(props) =>
-                          html`<${HoursAxisTick}
-                            ...${props}
-                            isSelected=${false}
-                          />`}
+                          html`<${FlatXAxisTick} ...${props} />`}
                       />
                       <${YAxis} allowDecimals=${false} />
                       <${Tooltip}
@@ -1775,11 +1854,10 @@ function App() {
                       <${XAxis}
                         dataKey="bin"
                         interval=${0}
+                        height=${54}
+                        tickMargin=${8}
                         tick=${(props) =>
-                          html`<${HoursAxisTick}
-                            ...${props}
-                            isSelected=${false}
-                          />`}
+                          html`<${FlatXAxisTick} ...${props} />`}
                       />
                       <${YAxis} allowDecimals=${false} />
                       <${Tooltip}
@@ -1849,7 +1927,7 @@ function App() {
                       boxShadow: "0 10px 20px rgba(15,23,42,0.12)",
                     }}
                   />
-                  ${visibleCategorySet.has("Billable")
+                  ${practiceHasBillable
                     ? html`<${Bar} dataKey="billable" stackId="alloc" name="Billable" fill=${CHART_COLORS.billable}>
                     <${LabelList}
                       dataKey="billable"
@@ -1879,7 +1957,7 @@ function App() {
                     )}
                   </${Bar}>`
                     : null}
-                  ${visibleCategorySet.has("Mandatory Shadow")
+                  ${practiceHasMandatoryShadow
                     ? html`<${Bar}
                       dataKey="mandatoryShadow"
                       stackId="alloc"
@@ -1914,7 +1992,7 @@ function App() {
                     )}
                   </${Bar}>`
                     : null}
-                  ${visibleCategorySet.has("Optional Shadow")
+                  ${practiceHasOptionalShadow
                     ? html`<${Bar}
                       dataKey="optionalShadow"
                       stackId="alloc"
@@ -1987,7 +2065,7 @@ function App() {
                       boxShadow: "0 10px 20px rgba(15,23,42,0.12)",
                     }}
                   />
-                  ${visibleCategorySet.has("Billable")
+                  ${gradeHasBillable
                     ? html`<${Bar} dataKey="billable" stackId="alloc" name="Billable" fill=${CHART_COLORS.billable}>
                     <${LabelList}
                       dataKey="billable"
@@ -2017,7 +2095,7 @@ function App() {
                     )}
                   </${Bar}>`
                     : null}
-                  ${visibleCategorySet.has("Mandatory Shadow")
+                  ${gradeHasMandatoryShadow
                     ? html`<${Bar}
                       dataKey="mandatoryShadow"
                       stackId="alloc"
@@ -2052,7 +2130,7 @@ function App() {
                     )}
                   </${Bar}>`
                     : null}
-                  ${visibleCategorySet.has("Optional Shadow")
+                  ${gradeHasOptionalShadow
                     ? html`<${Bar}
                       dataKey="optionalShadow"
                       stackId="alloc"
