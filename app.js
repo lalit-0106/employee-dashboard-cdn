@@ -1082,9 +1082,11 @@ function App() {
     ];
   }, [kpiBase]);
 
+  // Keep Utilization/Billable Hours charts stable while selecting bins:
+  // selections should shade bars, not collapse/remove non-selected bins.
   const displayEmployeeStats = useMemo(
-    () => buildUtilizationEmployeeStats(tableBase),
-    [tableBase],
+    () => buildUtilizationEmployeeStats(tableBasePreUtil),
+    [tableBasePreUtil],
   );
 
   const utilizationBins = useMemo(() => {
@@ -1140,8 +1142,8 @@ function App() {
   }, [displayEmployeeStats]);
 
   const utilizationEmployeeCount = useMemo(
-    () => new Set(tableBase.map((row) => row.employeeName)).size,
-    [tableBase],
+    () => displayEmployeeStats.size,
+    [displayEmployeeStats],
   );
 
   const avgUtilizationPct = useMemo(() => {
