@@ -86,6 +86,74 @@ body {
   z-index: 40;
 }
 
+.client-filter-panel {
+  margin-top: 10px;
+  padding: 16px;
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 12px;
+  align-items: end;
+}
+
+.client-grid {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(360px, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.client-pie-wrap {
+  padding: 10px;
+  min-height: 460px;
+}
+
+.client-mini-chart {
+  padding: 10px;
+}
+
+.client-mini-title {
+  font-size: 22px;
+  margin-bottom: 8px;
+}
+
+.client-ao-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.client-ao-pill {
+  border: 1px solid #c6d3e0;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.client-ao-pill:hover {
+  border-color: #8da4bc;
+}
+
+.client-ao-pill.active {
+  border-color: #0f172a;
+  box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
+}
+
+.client-ao-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -772,6 +840,12 @@ tbody tr:hover {
   .control-panel {
     grid-template-columns: 1fr 1fr;
   }
+  .client-filter-panel {
+    grid-template-columns: 1fr;
+  }
+  .client-grid {
+    grid-template-columns: 1fr;
+  }
   .trend-filters {
     grid-template-columns: 1fr 1fr;
   }
@@ -800,6 +874,9 @@ tbody tr:hover {
   }
   .util-charts {
     grid-template-columns: 1fr;
+  }
+  .client-mini-title {
+    font-size: 20px;
   }
   .trend-filters {
     grid-template-columns: 1fr;

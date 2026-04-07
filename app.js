@@ -10,8 +10,10 @@ import htm from "https://esm.sh/htm@3.1.1";
 import {
   ResponsiveContainer,
   BarChart,
+  PieChart,
   ComposedChart,
   Bar,
+  Pie,
   Line,
   CartesianGrid,
   XAxis,
@@ -258,6 +260,46 @@ function createData() {
 
 const DATA = createData();
 
+const CLIENT_PROJECT_TYPES = ["Client", "Internal", "Support Development", "Training"];
+const CLIENT_INDUSTRIES = [
+  "Banking",
+  "Insurance",
+  "Healthcare",
+  "Retail",
+  "Telecom",
+  "Manufacturing",
+];
+const CLIENT_COUNTRIES = [
+  "United States",
+  "Canada",
+  "United Kingdom",
+  "India",
+  "Germany",
+  "Australia",
+];
+const CLIENT_PROJECT_MANAGERS = [
+  "Ananya Sharma",
+  "Vikram Iyer",
+  "Sakshi Verma",
+  "Rahul Nair",
+  "Sneha Menon",
+  "Akhil Rao",
+];
+const CLIENT_DELIVERY_MANAGERS = ["Priya Nair", "Karan Singh", "Mehul Patel"];
+const PROJECT_TYPE_TO_KEY = {
+  Client: "client",
+  Internal: "internal",
+  "Support Development": "supportDevelopment",
+  Training: "training",
+};
+const PROJECT_TYPE_COLORS = {
+  client: "#0EA5A5",
+  internal: "#4F46E5",
+  supportDevelopment: "#F97316",
+  training: "#8B5CF6",
+};
+const AO_COLORS = ["#0EA5A5", "#4F46E5", "#F97316"];
+
 const KPI_BG = ["#e5e7eb", "#84cc16", "#65a30d", "#9ca3af", "#6b7280", "#f3f4f6"];
 const CHART_COLORS = {
   billable: "#0EA5A5",
@@ -334,6 +376,100 @@ function buildStackedDistribution(rows, key, categories = []) {
   return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function buildAccountProjectTypeRows(rows, accounts = []) {
+  const map = new Map();
+  const buildDefault = (name) => ({
+    name,
+    client: 0,
+    internal: 0,
+    supportDevelopment: 0,
+    training: 0,
+    total: 0,
+  });
+
+  for (const account of accounts) {
+    map.set(account, buildDefault(account));
+  }
+
+  for (const row of rows) {
+    if (!map.has(row.accountName)) {
+      map.set(row.accountName, buildDefault(row.accountName));
+    }
+    const entry = map.get(row.accountName);
+    const key = PROJECT_TYPE_TO_KEY[row.projectType];
+    if (key) entry[key] += 1;
+    entry.total += 1;
+  }
+
+  return [...map.values()].sort((a, b) => {
+    if (b.total !== a.total) return b.total - a.total;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function buildUniqueAccountCountRows(rows, key, categories = []) {
+  const map = new Map();
+  for (const category of categories) {
+    map.set(category, new Set());
+  }
+  for (const row of rows) {
+    if (!map.has(row[key])) map.set(row[key], new Set());
+    map.get(row[key]).add(row.accountName);
+  }
+  const result = [];
+  for (const [name, set] of map.entries()) {
+    result.push({ name, count: set.size });
+  }
+  return result.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function buildSimpleCountRows(rows, key, categories = []) {
+  const map = new Map();
+  for (const category of categories) {
+    map.set(category, 0);
+  }
+  for (const row of rows) {
+    if (!map.has(row[key])) map.set(row[key], 0);
+    map.set(row[key], map.get(row[key]) + 1);
+  }
+  const result = [];
+  for (const [name, count] of map.entries()) {
+    result.push({ name, count });
+  }
+  return result.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function buildAoAccountPieRows(rows, aoNames = []) {
+  const map = new Map();
+  for (const name of aoNames) {
+    map.set(name, new Set());
+  }
+  for (const row of rows) {
+    if (!map.has(row.deliveryManager)) map.set(row.deliveryManager, new Set());
+    map.get(row.deliveryManager).add(row.accountName);
+  }
+  const result = [];
+  let index = 0;
+  for (const [name, accounts] of map.entries()) {
+    result.push({
+      name,
+      value: accounts.size,
+      color: AO_COLORS[index % AO_COLORS.length],
+    });
+    index += 1;
+  }
+  return result.sort((a, b) => {
+    if (b.value !== a.value) return b.value - a.value;
+    return a.name.localeCompare(b.name);
+  });
+}
+
 function applyPracticeGradeFilters(
   rows,
   selectedPractices,
@@ -383,6 +519,46 @@ function hashString(value) {
   }
   return Math.abs(h >>> 0);
 }
+
+function buildClientDashboardRows(rows) {
+  const uniquePairs = new Map();
+  for (const row of rows) {
+    const key = `${row.accountName}|${row.projectName}`;
+    if (uniquePairs.has(key)) continue;
+    uniquePairs.set(key, {
+      accountName: row.accountName,
+      projectName: row.projectName,
+    });
+  }
+
+  const enriched = [];
+  for (const pair of uniquePairs.values()) {
+    const accountSeed = pair.accountName;
+    const projectSeed = `${pair.accountName}|${pair.projectName}`;
+    const deliveryManager =
+      CLIENT_DELIVERY_MANAGERS[
+        hashString(`${accountSeed}|delivery-manager`) % CLIENT_DELIVERY_MANAGERS.length
+      ];
+
+    enriched.push({
+      ...pair,
+      accountOwner: deliveryManager,
+      deliveryManager,
+      industry:
+        CLIENT_INDUSTRIES[hashString(`${accountSeed}|industry`) % CLIENT_INDUSTRIES.length],
+      country: CLIENT_COUNTRIES[hashString(`${accountSeed}|country`) % CLIENT_COUNTRIES.length],
+      projectType:
+        CLIENT_PROJECT_TYPES[hashString(`${projectSeed}|project-type`) % CLIENT_PROJECT_TYPES.length],
+      projectManager:
+        CLIENT_PROJECT_MANAGERS[
+          hashString(`${projectSeed}|project-manager`) % CLIENT_PROJECT_MANAGERS.length
+        ],
+    });
+  }
+  return enriched;
+}
+
+const CLIENT_DASH_ROWS = buildClientDashboardRows(DATA);
 
 function getVisibleCategoriesForScope(scope) {
   if (scope === "Billable") return ["Billable"];
@@ -767,6 +943,7 @@ function App() {
   const [tpTrendEngagementType, setTpTrendEngagementType] = useState("All");
   const [tpTrendPractices, setTpTrendPractices] = useState([]);
   const [tpTrendGrades, setTpTrendGrades] = useState([]);
+  const [selectedClientAOs, setSelectedClientAOs] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [hint, setHint] = useState("");
   const [page, setPage] = useState(1);
@@ -898,6 +1075,110 @@ function App() {
       }),
     [tpTrendEngagementType, tpTrendPractices, tpTrendGrades],
   );
+
+  const clientAOOptions = useMemo(() => {
+    const set = new Set(CLIENT_DASH_ROWS.map((row) => row.deliveryManager));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const clientAccountOptions = useMemo(() => {
+    const set = new Set(CLIENT_DASH_ROWS.map((row) => row.accountName));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const clientIndustryOptions = useMemo(() => {
+    const set = new Set(CLIENT_DASH_ROWS.map((row) => row.industry));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const clientCountryOptions = useMemo(() => {
+    const set = new Set(CLIENT_DASH_ROWS.map((row) => row.country));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const clientProjectManagerOptions = useMemo(() => {
+    const set = new Set(CLIENT_DASH_ROWS.map((row) => row.projectManager));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const clientAoSet = useMemo(() => new Set(selectedClientAOs), [selectedClientAOs]);
+
+  const clientFilteredRows = useMemo(() => {
+    if (!selectedClientAOs.length) return CLIENT_DASH_ROWS;
+    return CLIENT_DASH_ROWS.filter((row) => clientAoSet.has(row.deliveryManager));
+  }, [selectedClientAOs, clientAoSet]);
+
+  const clientAccountProjectData = useMemo(
+    () => buildAccountProjectTypeRows(clientFilteredRows, clientAccountOptions),
+    [clientFilteredRows, clientAccountOptions],
+  );
+
+  const clientIndustryData = useMemo(
+    () => buildUniqueAccountCountRows(clientFilteredRows, "industry", clientIndustryOptions),
+    [clientFilteredRows, clientIndustryOptions],
+  );
+
+  const clientCountryData = useMemo(
+    () => buildUniqueAccountCountRows(clientFilteredRows, "country", clientCountryOptions),
+    [clientFilteredRows, clientCountryOptions],
+  );
+
+  const clientProjectTypeData = useMemo(
+    () => buildSimpleCountRows(clientFilteredRows, "projectType", CLIENT_PROJECT_TYPES),
+    [clientFilteredRows],
+  );
+
+  const clientProjectManagerData = useMemo(
+    () => buildSimpleCountRows(clientFilteredRows, "projectManager", clientProjectManagerOptions),
+    [clientFilteredRows, clientProjectManagerOptions],
+  );
+
+  const clientAoPieData = useMemo(
+    () => buildAoAccountPieRows(CLIENT_DASH_ROWS, clientAOOptions),
+    [clientAOOptions],
+  );
+
+  const clientChartAccountAxisWidth = useMemo(() => {
+    const maxLen = clientAccountProjectData.reduce((max, item) => Math.max(max, item.name.length), 0);
+    return Math.max(200, Math.min(420, maxLen * 8));
+  }, [clientAccountProjectData]);
+
+  const clientAccountChartHeight = useMemo(
+    () => Math.max(320, clientAccountProjectData.length * 28),
+    [clientAccountProjectData.length],
+  );
+
+  const hasClientTypeClient = useMemo(
+    () => clientAccountProjectData.some((row) => row.client > 0),
+    [clientAccountProjectData],
+  );
+  const hasClientTypeInternal = useMemo(
+    () => clientAccountProjectData.some((row) => row.internal > 0),
+    [clientAccountProjectData],
+  );
+  const hasClientTypeSupportDevelopment = useMemo(
+    () => clientAccountProjectData.some((row) => row.supportDevelopment > 0),
+    [clientAccountProjectData],
+  );
+  const hasClientTypeTraining = useMemo(
+    () => clientAccountProjectData.some((row) => row.training > 0),
+    [clientAccountProjectData],
+  );
+
+  const clientIndustryAxisWidth = useMemo(() => {
+    const maxLen = clientIndustryData.reduce((max, item) => Math.max(max, item.name.length), 0);
+    return Math.max(120, Math.min(220, maxLen * 8));
+  }, [clientIndustryData]);
+
+  const clientCountryAxisWidth = useMemo(() => {
+    const maxLen = clientCountryData.reduce((max, item) => Math.max(max, item.name.length), 0);
+    return Math.max(110, Math.min(220, maxLen * 8));
+  }, [clientCountryData]);
+
+  const clientPmAxisWidth = useMemo(() => {
+    const maxLen = clientProjectManagerData.reduce((max, item) => Math.max(max, item.name.length), 0);
+    return Math.max(140, Math.min(240, maxLen * 8));
+  }, [clientProjectManagerData]);
 
   const dropdownFiltered = useMemo(() => {
     let rows = DATA;
@@ -1297,6 +1578,11 @@ function App() {
   }, [tpTrendGradeOptions]);
 
   useEffect(() => {
+    const valid = new Set(clientAOOptions);
+    setSelectedClientAOs((prev) => prev.filter((item) => valid.has(item)));
+  }, [clientAOOptions]);
+
+  useEffect(() => {
     setPage(1);
   }, [
     tableRows.length,
@@ -1548,6 +1834,19 @@ function App() {
     setTpTrendGrades([]);
   };
 
+  const toggleClientAO = (aoName) => {
+    setSelectedClientAOs((prev) => {
+      const set = new Set(prev);
+      if (set.has(aoName)) set.delete(aoName);
+      else set.add(aoName);
+      return [...set];
+    });
+  };
+
+  const clearClientFilters = () => {
+    setSelectedClientAOs([]);
+  };
+
   const clearChartSelection = () => {
     setChartPairs([]);
     setSelectedPractices([]);
@@ -1571,6 +1870,12 @@ function App() {
           onClick=${() => setActiveTab("dashboard")}
         >
           Dashboard
+        </button>
+        <button
+          className=${`tab-btn ${activeTab === "client_dashboard" ? "active" : ""}`}
+          onClick=${() => setActiveTab("client_dashboard")}
+        >
+          Account & Project
         </button>
         <button
           className=${`tab-btn ${activeTab === "trend" ? "active" : ""}`}
@@ -2317,6 +2622,283 @@ function App() {
         </div>
       </section>
 
+      </div>
+
+      <div style=${{ display: activeTab === "client_dashboard" ? "block" : "none" }}>
+        <section className="panel client-filter-panel">
+          <div className="field">
+            <label>Account Owner / Delivery Manager</label>
+            <${MultiSelectDropdown}
+              options=${clientAOOptions}
+              selectedValues=${selectedClientAOs}
+              onChange=${(values) => setSelectedClientAOs(values)}
+              placeholder="All Delivery Managers"
+            />
+          </div>
+          <button
+            className="btn"
+            onClick=${clearClientFilters}
+            disabled=${selectedClientAOs.length === 0}
+          >
+            Clear AO Filter
+          </button>
+        </section>
+
+        <section className="client-grid">
+          <section className="panel chart-wrap">
+            <h2 className="section-title">Accounts by Project Type</h2>
+            <div className="chart-sub">
+              Projects split by Client, Internal, Support Development and Training
+            </div>
+            <div className="chart-scroll" style=${{ maxHeight: "420px" }}>
+              <div style=${{ width: "100%", height: `${clientAccountChartHeight}px` }}>
+                <${ResponsiveContainer} width="100%" height="100%">
+                  <${BarChart}
+                    layout="vertical"
+                    data=${clientAccountProjectData}
+                    margin=${{ top: 10, right: 20, left: 8, bottom: 10 }}
+                  >
+                    <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <${XAxis} type="number" allowDecimals=${false} />
+                    <${YAxis}
+                      type="category"
+                      dataKey="name"
+                      width=${clientChartAccountAxisWidth}
+                      interval=${0}
+                    />
+                    <${Tooltip}
+                      cursor=${false}
+                      contentStyle=${{
+                        borderRadius: "10px",
+                        border: "1px solid #d7dee8",
+                        boxShadow: "0 10px 20px rgba(15,23,42,0.12)",
+                      }}
+                    />
+                    <${Legend} />
+                    ${hasClientTypeClient
+                      ? html`
+                          <${Bar}
+                            dataKey="client"
+                            name="Client"
+                            stackId="projectType"
+                            fill=${PROJECT_TYPE_COLORS.client}
+                          >
+                            <${LabelList} dataKey="client" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                          </${Bar}>
+                        `
+                      : null}
+                    ${hasClientTypeInternal
+                      ? html`
+                          <${Bar}
+                            dataKey="internal"
+                            name="Internal"
+                            stackId="projectType"
+                            fill=${PROJECT_TYPE_COLORS.internal}
+                          >
+                            <${LabelList} dataKey="internal" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                          </${Bar}>
+                        `
+                      : null}
+                    ${hasClientTypeSupportDevelopment
+                      ? html`
+                          <${Bar}
+                            dataKey="supportDevelopment"
+                            name="Support Development"
+                            stackId="projectType"
+                            fill=${PROJECT_TYPE_COLORS.supportDevelopment}
+                          >
+                            <${LabelList}
+                              dataKey="supportDevelopment"
+                              content=${(props) => html`<${SegmentValueLabel} ...${props} />`}
+                            />
+                          </${Bar}>
+                        `
+                      : null}
+                    ${hasClientTypeTraining
+                      ? html`
+                          <${Bar}
+                            dataKey="training"
+                            name="Training"
+                            stackId="projectType"
+                            fill=${PROJECT_TYPE_COLORS.training}
+                          >
+                            <${LabelList} dataKey="training" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                          </${Bar}>
+                        `
+                      : null}
+                  </${BarChart}>
+                </${ResponsiveContainer}>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel client-pie-wrap">
+            <h3 className="side-title">Account Owner (DM) Wise Accounts</h3>
+            <div className="chart-sub">Click AO names or pie slices to cross-filter this tab</div>
+            <div className="client-ao-pills">
+              ${clientAoPieData.map(
+                (item) => html`
+                  <button
+                    type="button"
+                    className=${`client-ao-pill ${clientAoSet.has(item.name) ? "active" : ""}`}
+                    onClick=${() => toggleClientAO(item.name)}
+                  >
+                    <span className="dot" style=${{ background: item.color }}></span>
+                    ${item.name} (${item.value})
+                  </button>
+                `,
+              )}
+            </div>
+            <div style=${{ width: "100%", height: "320px" }}>
+              <${ResponsiveContainer} width="100%" height="100%">
+                <${PieChart}>
+                  <${Tooltip}
+                    formatter=${(value, name) => [`${Number(value).toLocaleString()} account(s)`, name]}
+                  />
+                  <${Legend} />
+                  <${Pie}
+                    data=${clientAoPieData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="46%"
+                    outerRadius=${95}
+                    labelLine=${false}
+                    label=${({ name, value }) => `${name}: ${value}`}
+                  >
+                    ${clientAoPieData.map(
+                      (item) =>
+                        html`<${Cell}
+                          key=${`ao-${item.name}`}
+                          fill=${item.color}
+                          opacity=${selectedClientAOs.length
+                            ? clientAoSet.has(item.name)
+                              ? 1
+                              : 0.24
+                            : 1}
+                          stroke=${clientAoSet.has(item.name) ? "#0f172a" : "transparent"}
+                          strokeWidth=${clientAoSet.has(item.name) ? 1.4 : 0}
+                          cursor="pointer"
+                          onClick=${() => toggleClientAO(item.name)}
+                        />`,
+                    )}
+                  </${Pie}>
+                </${PieChart}>
+              </${ResponsiveContainer}>
+            </div>
+          </section>
+
+          <section className="panel client-mini-chart">
+            <h3 className="mini-title client-mini-title">Industry Wise Accounts</h3>
+            <div style=${{ width: "100%", height: "270px" }}>
+              <${ResponsiveContainer} width="100%" height="100%">
+                <${BarChart}
+                  layout="vertical"
+                  data=${clientIndustryData}
+                  margin=${{ top: 10, right: 16, left: 6, bottom: 8 }}
+                >
+                  <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <${XAxis} type="number" allowDecimals=${false} />
+                  <${YAxis}
+                    type="category"
+                    dataKey="name"
+                    width=${clientIndustryAxisWidth}
+                    interval=${0}
+                  />
+                  <${Tooltip}
+                    content=${(props) => html`<${CountTooltip} ...${props} />`}
+                    cursor=${false}
+                  />
+                  <${Bar} dataKey="count" name="Accounts" fill="#0EA5A5" radius=${[0, 8, 8, 0]}>
+                    <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                  </${Bar}>
+                </${BarChart}>
+              </${ResponsiveContainer}>
+            </div>
+          </section>
+
+          <section className="panel client-mini-chart">
+            <h3 className="mini-title client-mini-title">Country Wise Accounts</h3>
+            <div style=${{ width: "100%", height: "270px" }}>
+              <${ResponsiveContainer} width="100%" height="100%">
+                <${BarChart}
+                  layout="vertical"
+                  data=${clientCountryData}
+                  margin=${{ top: 10, right: 16, left: 6, bottom: 8 }}
+                >
+                  <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <${XAxis} type="number" allowDecimals=${false} />
+                  <${YAxis}
+                    type="category"
+                    dataKey="name"
+                    width=${clientCountryAxisWidth}
+                    interval=${0}
+                  />
+                  <${Tooltip}
+                    content=${(props) => html`<${CountTooltip} ...${props} />`}
+                    cursor=${false}
+                  />
+                  <${Bar} dataKey="count" name="Accounts" fill="#4F46E5" radius=${[0, 8, 8, 0]}>
+                    <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                  </${Bar}>
+                </${BarChart}>
+              </${ResponsiveContainer}>
+            </div>
+          </section>
+
+          <section className="panel client-mini-chart">
+            <h3 className="mini-title client-mini-title">Project Type Distribution</h3>
+            <div style=${{ width: "100%", height: "270px" }}>
+              <${ResponsiveContainer} width="100%" height="100%">
+                <${BarChart}
+                  layout="vertical"
+                  data=${clientProjectTypeData}
+                  margin=${{ top: 10, right: 16, left: 6, bottom: 8 }}
+                >
+                  <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <${XAxis} type="number" allowDecimals=${false} />
+                  <${YAxis} type="category" dataKey="name" width=${170} interval=${0} />
+                  <${Tooltip}
+                    content=${(props) => html`<${CountTooltip} ...${props} />`}
+                    cursor=${false}
+                  />
+                  <${Bar} dataKey="count" name="Projects" fill="#F97316" radius=${[0, 8, 8, 0]}>
+                    <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                  </${Bar}>
+                </${BarChart}>
+              </${ResponsiveContainer}>
+            </div>
+          </section>
+
+          <section className="panel client-mini-chart">
+            <h3 className="mini-title client-mini-title">Project Manager Wise Projects</h3>
+            <div style=${{ width: "100%", height: "270px" }}>
+              <${ResponsiveContainer} width="100%" height="100%">
+                <${BarChart}
+                  layout="vertical"
+                  data=${clientProjectManagerData}
+                  margin=${{ top: 10, right: 16, left: 6, bottom: 8 }}
+                >
+                  <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <${XAxis} type="number" allowDecimals=${false} />
+                  <${YAxis}
+                    type="category"
+                    dataKey="name"
+                    width=${clientPmAxisWidth}
+                    interval=${0}
+                  />
+                  <${Tooltip}
+                    content=${(props) => html`<${CountTooltip} ...${props} />`}
+                    cursor=${false}
+                  />
+                  <${Bar} dataKey="count" name="Projects" fill="#8B5CF6" radius=${[0, 8, 8, 0]}>
+                    <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                  </${Bar}>
+                </${BarChart}>
+              </${ResponsiveContainer}>
+            </div>
+          </section>
+        </section>
       </div>
 
       <div style=${{ display: activeTab === "trend" ? "block" : "none" }}>
