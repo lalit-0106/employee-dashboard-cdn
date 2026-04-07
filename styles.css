@@ -136,10 +136,12 @@ body {
   align-items: center;
   gap: 6px;
   cursor: pointer;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
 }
 
 .client-ao-pill:hover {
   border-color: #8da4bc;
+  transform: translateY(-1px);
 }
 
 .client-ao-pill.active {
@@ -147,11 +149,20 @@ body {
   box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08);
 }
 
+.client-ao-pill:focus,
+.client-ao-pill:focus-visible {
+  outline: none;
+}
+
 .client-ao-pill .dot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
   display: inline-block;
+}
+
+.client-pie-wrap .recharts-sector {
+  transition: opacity 220ms ease;
 }
 
 .field {

@@ -2682,6 +2682,9 @@ function App() {
                             name="Client"
                             stackId="projectType"
                             fill=${PROJECT_TYPE_COLORS.client}
+                            isAnimationActive=${true}
+                            animationDuration=${800}
+                            animationEasing="ease-in-out"
                           >
                             <${LabelList} dataKey="client" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
                           </${Bar}>
@@ -2694,6 +2697,9 @@ function App() {
                             name="Internal"
                             stackId="projectType"
                             fill=${PROJECT_TYPE_COLORS.internal}
+                            isAnimationActive=${true}
+                            animationDuration=${800}
+                            animationEasing="ease-in-out"
                           >
                             <${LabelList} dataKey="internal" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
                           </${Bar}>
@@ -2706,6 +2712,9 @@ function App() {
                             name="Support Development"
                             stackId="projectType"
                             fill=${PROJECT_TYPE_COLORS.supportDevelopment}
+                            isAnimationActive=${true}
+                            animationDuration=${800}
+                            animationEasing="ease-in-out"
                           >
                             <${LabelList}
                               dataKey="supportDevelopment"
@@ -2721,6 +2730,9 @@ function App() {
                             name="Training"
                             stackId="projectType"
                             fill=${PROJECT_TYPE_COLORS.training}
+                            isAnimationActive=${true}
+                            animationDuration=${800}
+                            animationEasing="ease-in-out"
                           >
                             <${LabelList} dataKey="training" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
                           </${Bar}>
@@ -2750,11 +2762,8 @@ function App() {
               )}
             </div>
             <div style=${{ width: "100%", height: "320px" }}>
-              <${ResponsiveContainer} width="100%" height="100%">
-                <${PieChart}>
-                  <${Tooltip}
-                    formatter=${(value, name) => [`${Number(value).toLocaleString()} account(s)`, name]}
-                  />
+                <${ResponsiveContainer} width="100%" height="100%">
+                  <${PieChart}>
                   <${Legend} />
                   <${Pie}
                     data=${clientAoPieData}
@@ -2765,6 +2774,10 @@ function App() {
                     outerRadius=${95}
                     labelLine=${false}
                     label=${({ name, value }) => `${name}: ${value}`}
+                    isAnimationActive=${true}
+                    animationBegin=${0}
+                    animationDuration=${850}
+                    animationEasing="ease-in-out"
                   >
                     ${clientAoPieData.map(
                       (item) =>
@@ -2779,6 +2792,7 @@ function App() {
                           stroke=${clientAoSet.has(item.name) ? "#0f172a" : "transparent"}
                           strokeWidth=${clientAoSet.has(item.name) ? 1.4 : 0}
                           cursor="pointer"
+                          style=${{ transition: "opacity 220ms ease, stroke 220ms ease, stroke-width 220ms ease" }}
                           onClick=${() => toggleClientAO(item.name)}
                         />`,
                     )}
@@ -2809,7 +2823,15 @@ function App() {
                     content=${(props) => html`<${CountTooltip} ...${props} />`}
                     cursor=${false}
                   />
-                  <${Bar} dataKey="count" name="Accounts" fill="#0EA5A5" radius=${[0, 8, 8, 0]}>
+                  <${Bar}
+                    dataKey="count"
+                    name="Accounts"
+                    fill="#0EA5A5"
+                    radius=${[0, 8, 8, 0]}
+                    isAnimationActive=${true}
+                    animationDuration=${760}
+                    animationEasing="ease-in-out"
+                  >
                     <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
                   </${Bar}>
                 </${BarChart}>
@@ -2838,7 +2860,15 @@ function App() {
                     content=${(props) => html`<${CountTooltip} ...${props} />`}
                     cursor=${false}
                   />
-                  <${Bar} dataKey="count" name="Accounts" fill="#4F46E5" radius=${[0, 8, 8, 0]}>
+                  <${Bar}
+                    dataKey="count"
+                    name="Accounts"
+                    fill="#4F46E5"
+                    radius=${[0, 8, 8, 0]}
+                    isAnimationActive=${true}
+                    animationDuration=${760}
+                    animationEasing="ease-in-out"
+                  >
                     <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
                   </${Bar}>
                 </${BarChart}>
@@ -2862,7 +2892,15 @@ function App() {
                     content=${(props) => html`<${CountTooltip} ...${props} />`}
                     cursor=${false}
                   />
-                  <${Bar} dataKey="count" name="Projects" fill="#F97316" radius=${[0, 8, 8, 0]}>
+                  <${Bar}
+                    dataKey="count"
+                    name="Projects"
+                    fill="#F97316"
+                    radius=${[0, 8, 8, 0]}
+                    isAnimationActive=${true}
+                    animationDuration=${760}
+                    animationEasing="ease-in-out"
+                  >
                     <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
                   </${Bar}>
                 </${BarChart}>
@@ -2891,7 +2929,15 @@ function App() {
                     content=${(props) => html`<${CountTooltip} ...${props} />`}
                     cursor=${false}
                   />
-                  <${Bar} dataKey="count" name="Projects" fill="#8B5CF6" radius=${[0, 8, 8, 0]}>
+                  <${Bar}
+                    dataKey="count"
+                    name="Projects"
+                    fill="#8B5CF6"
+                    radius=${[0, 8, 8, 0]}
+                    isAnimationActive=${true}
+                    animationDuration=${760}
+                    animationEasing="ease-in-out"
+                  >
                     <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
                   </${Bar}>
                 </${BarChart}>
