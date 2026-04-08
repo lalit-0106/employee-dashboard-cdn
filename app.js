@@ -705,7 +705,10 @@ function AxisTick(props) {
         y=${4}
         textAnchor="end"
         className=${`axis-text ${isSelected ? "axis-text-selected" : ""}`}
-        onClick=${() => onAxisClick(payload.value)}
+        onClick=${(event) => {
+          event.stopPropagation();
+          onAxisClick(payload.value);
+        }}
       >
         ${payload.value}
         <title>${payload.value}</title>
@@ -819,7 +822,10 @@ function ClassicPieLabel(props) {
 
   return html`
     <g
-      onClick=${() => onLabelClick && onLabelClick(name)}
+      onClick=${(event) => {
+        event.stopPropagation();
+        if (onLabelClick) onLabelClick(name);
+      }}
       style=${{ cursor: onLabelClick ? "pointer" : "default", opacity: active ? 1 : 0.28 }}
     >
       <path
@@ -1150,6 +1156,17 @@ function App() {
   const clientCountryOptions = useMemo(() => {
     const set = new Set(CLIENT_DASH_ROWS.map((row) => row.country));
     return [...set].sort((a, b) => a.localeCompare(b));
+  }, []);
+
+  const clientAccountTypeMap = useMemo(() => {
+    const map = new Map();
+    for (const row of CLIENT_DASH_ROWS) {
+      if (!map.has(row.accountName)) {
+        map.set(row.accountName, new Set());
+      }
+      map.get(row.accountName).add(row.projectType);
+    }
+    return map;
   }, []);
 
   const clientAccountPairOptions = useMemo(() => {
@@ -1974,10 +1991,9 @@ function App() {
   };
 
   const handleClientAccountAxisClick = (accountName) => {
-    const row = clientAccountProjectData.find((item) => item.name === accountName);
-    if (!row) return;
-    const keys = CLIENT_PROJECT_TYPES
-      .filter((projectType) => row[PROJECT_TYPE_TO_KEY[projectType]] > 0)
+    const projectTypes = clientAccountTypeMap.get(accountName);
+    if (!projectTypes || !projectTypes.size) return;
+    const keys = [...projectTypes]
       .map((projectType) => clientPairKey(accountName, projectType));
     if (!keys.length) return;
     setSelectedClientAccountPairs((prev) => {
