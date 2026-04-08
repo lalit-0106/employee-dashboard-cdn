@@ -2043,10 +2043,6 @@ function App() {
 
   return html`
     <div>
-      <h1 className="title">Allocation Distribution</h1>
-      <div className="subtitle">
-        Employee Dashboard - Account/Project-wise billable and shadow insights
-      </div>
       <section className="panel tab-nav">
         <button
           className=${`tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
