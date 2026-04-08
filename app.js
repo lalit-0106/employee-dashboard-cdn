@@ -1244,7 +1244,7 @@ function App() {
   }, [clientAccountProjectData]);
 
   const clientAccountChartHeight = useMemo(
-    () => Math.max(320, clientAccountProjectData.length * 28),
+    () => Math.max(220, clientAccountProjectData.length * 28),
     [clientAccountProjectData.length],
   );
 
@@ -2993,7 +2993,7 @@ function App() {
                 `,
               )}
             </div>
-            <div style=${{ width: "100%", height: "350px" }}>
+            <div style=${{ width: "100%", height: "300px" }}>
                 <${ResponsiveContainer} width="100%" height="100%">
                   <${PieChart}>
                   <${Pie}
