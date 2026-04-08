@@ -801,6 +801,9 @@ function ClassicPieLabel(props) {
     percent,
     value,
     name,
+    onLabelClick,
+    isSelected = false,
+    hasSelection = false,
   } = props;
   const RADIAN = Math.PI / 180;
   const angle = -midAngle * RADIAN;
@@ -812,11 +815,27 @@ function ClassicPieLabel(props) {
   const ey = my;
   const textAnchor = Math.cos(angle) >= 0 ? "start" : "end";
   const pct = `${Math.round((Number(percent) || 0) * 100)}%`;
+  const active = !hasSelection || isSelected;
 
   return html`
-    <g>
-      <path d=${`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke="#94a3b8" fill="none" />
-      <text x=${ex} y=${ey - 2} textAnchor=${textAnchor} fill="#0f172a" fontSize="12" fontWeight="700">
+    <g
+      onClick=${() => onLabelClick && onLabelClick(name)}
+      style=${{ cursor: onLabelClick ? "pointer" : "default", opacity: active ? 1 : 0.28 }}
+    >
+      <path
+        d=${`M${sx},${sy}L${mx},${my}L${ex},${ey}`}
+        stroke=${isSelected ? "#0f172a" : "#94a3b8"}
+        strokeWidth=${isSelected ? 1.6 : 1}
+        fill="none"
+      />
+      <text
+        x=${ex}
+        y=${ey - 2}
+        textAnchor=${textAnchor}
+        fill="#0f172a"
+        fontSize="12"
+        fontWeight=${isSelected ? "800" : "700"}
+      >
         ${name}
       </text>
       <text x=${ex} y=${ey + 13} textAnchor=${textAnchor} fill="#475569" fontSize="12">
@@ -2970,7 +2989,13 @@ function App() {
                     innerRadius=${0}
                     outerRadius=${90}
                     labelLine=${false}
-                    label=${(props) => html`<${ClassicPieLabel} ...${props} />`}
+                    label=${(props) =>
+                      html`<${ClassicPieLabel}
+                        ...${props}
+                        onLabelClick=${toggleClientAO}
+                        isSelected=${clientAoSet.has(props?.name)}
+                        hasSelection=${selectedClientAOs.length > 0}
+                      />`}
                     isAnimationActive=${true}
                     animationBegin=${0}
                     animationDuration=${850}
