@@ -792,6 +792,40 @@ function SegmentValueLabel(props) {
   `;
 }
 
+function ClassicPieLabel(props) {
+  const {
+    cx,
+    cy,
+    midAngle,
+    outerRadius,
+    percent,
+    value,
+    name,
+  } = props;
+  const RADIAN = Math.PI / 180;
+  const angle = -midAngle * RADIAN;
+  const sx = cx + outerRadius * Math.cos(angle);
+  const sy = cy + outerRadius * Math.sin(angle);
+  const mx = cx + (outerRadius + 18) * Math.cos(angle);
+  const my = cy + (outerRadius + 18) * Math.sin(angle);
+  const ex = mx + (Math.cos(angle) >= 0 ? 26 : -26);
+  const ey = my;
+  const textAnchor = Math.cos(angle) >= 0 ? "start" : "end";
+  const pct = `${Math.round((Number(percent) || 0) * 100)}%`;
+
+  return html`
+    <g>
+      <path d=${`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke="#94a3b8" fill="none" />
+      <text x=${ex} y=${ey - 2} textAnchor=${textAnchor} fill="#0f172a" fontSize="12" fontWeight="700">
+        ${name}
+      </text>
+      <text x=${ex} y=${ey + 13} textAnchor=${textAnchor} fill="#475569" fontSize="12">
+        ${`${Number(value).toLocaleString()}, ${pct}`}
+      </text>
+    </g>
+  `;
+}
+
 function CountTooltip(props) {
   const { active, payload, label } = props;
   if (!active || !payload || !payload.length) return null;
@@ -2924,19 +2958,19 @@ function App() {
                 `,
               )}
             </div>
-            <div style=${{ width: "100%", height: "320px" }}>
+            <div style=${{ width: "100%", height: "350px" }}>
                 <${ResponsiveContainer} width="100%" height="100%">
                   <${PieChart}>
-                  <${Legend} />
                   <${Pie}
                     data=${clientAoPieData}
                     dataKey="value"
                     nameKey="name"
                     cx="50%"
-                    cy="46%"
-                    outerRadius=${95}
+                    cy="52%"
+                    innerRadius=${0}
+                    outerRadius=${90}
                     labelLine=${false}
-                    label=${({ name, value }) => `${name}: ${value}`}
+                    label=${(props) => html`<${ClassicPieLabel} ...${props} />`}
                     isAnimationActive=${true}
                     animationBegin=${0}
                     animationDuration=${850}
