@@ -293,12 +293,12 @@ const PROJECT_TYPE_TO_KEY = {
   Training: "training",
 };
 const PROJECT_TYPE_COLORS = {
-  client: "#0EA5A5",
-  internal: "#4F46E5",
-  supportDevelopment: "#F97316",
-  training: "#8B5CF6",
+  client: "#0F766E",
+  internal: "#2563EB",
+  supportDevelopment: "#F59E0B",
+  training: "#9333EA",
 };
-const AO_COLORS = ["#0EA5A5", "#4F46E5", "#F97316"];
+const AO_COLORS = ["#0F766E", "#2563EB", "#F59E0B"];
 
 const KPI_BG = ["#e5e7eb", "#84cc16", "#65a30d", "#9ca3af", "#6b7280", "#f3f4f6"];
 const CHART_COLORS = {
@@ -333,6 +333,10 @@ const TREND_MONTHS = [
 
 function pairKey(dimension, category) {
   return `${dimension}||${category}`;
+}
+
+function clientPairKey(accountName, projectType) {
+  return `${accountName}||${projectType}`;
 }
 
 function applyPairFilter(rows, pairs, dimensionKey) {
@@ -401,10 +405,8 @@ function buildAccountProjectTypeRows(rows, accounts = []) {
     entry.total += 1;
   }
 
-  return [...map.values()].sort((a, b) => {
-    if (b.total !== a.total) return b.total - a.total;
-    return a.name.localeCompare(b.name);
-  });
+  if (accounts.length) return [...map.values()];
+  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function buildUniqueAccountCountRows(rows, key, categories = []) {
@@ -420,10 +422,8 @@ function buildUniqueAccountCountRows(rows, key, categories = []) {
   for (const [name, set] of map.entries()) {
     result.push({ name, count: set.size });
   }
-  return result.sort((a, b) => {
-    if (b.count !== a.count) return b.count - a.count;
-    return a.name.localeCompare(b.name);
-  });
+  if (categories.length) return result;
+  return result.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function buildSimpleCountRows(rows, key, categories = []) {
@@ -944,6 +944,9 @@ function App() {
   const [tpTrendPractices, setTpTrendPractices] = useState([]);
   const [tpTrendGrades, setTpTrendGrades] = useState([]);
   const [selectedClientAOs, setSelectedClientAOs] = useState([]);
+  const [selectedClientIndustries, setSelectedClientIndustries] = useState([]);
+  const [selectedClientCountries, setSelectedClientCountries] = useState([]);
+  const [selectedClientAccountPairs, setSelectedClientAccountPairs] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [hint, setHint] = useState("");
   const [page, setPage] = useState(1);
@@ -1096,17 +1099,54 @@ function App() {
     return [...set].sort((a, b) => a.localeCompare(b));
   }, []);
 
-  const clientProjectManagerOptions = useMemo(() => {
-    const set = new Set(CLIENT_DASH_ROWS.map((row) => row.projectManager));
-    return [...set].sort((a, b) => a.localeCompare(b));
+  const clientAccountPairOptions = useMemo(() => {
+    const set = new Set();
+    for (const row of CLIENT_DASH_ROWS) {
+      set.add(clientPairKey(row.accountName, row.projectType));
+    }
+    return [...set];
   }, []);
 
   const clientAoSet = useMemo(() => new Set(selectedClientAOs), [selectedClientAOs]);
+  const clientIndustrySet = useMemo(
+    () => new Set(selectedClientIndustries),
+    [selectedClientIndustries],
+  );
+  const clientCountrySet = useMemo(
+    () => new Set(selectedClientCountries),
+    [selectedClientCountries],
+  );
+  const clientAccountPairSet = useMemo(
+    () => new Set(selectedClientAccountPairs),
+    [selectedClientAccountPairs],
+  );
+
+  const clientRowsByChartFiltersNoAO = useMemo(() => {
+    let rows = CLIENT_DASH_ROWS;
+    if (selectedClientIndustries.length) {
+      rows = rows.filter((row) => clientIndustrySet.has(row.industry));
+    }
+    if (selectedClientCountries.length) {
+      rows = rows.filter((row) => clientCountrySet.has(row.country));
+    }
+    if (selectedClientAccountPairs.length) {
+      rows = rows.filter((row) =>
+        clientAccountPairSet.has(clientPairKey(row.accountName, row.projectType)));
+    }
+    return rows;
+  }, [
+    selectedClientIndustries,
+    selectedClientCountries,
+    selectedClientAccountPairs,
+    clientIndustrySet,
+    clientCountrySet,
+    clientAccountPairSet,
+  ]);
 
   const clientFilteredRows = useMemo(() => {
-    if (!selectedClientAOs.length) return CLIENT_DASH_ROWS;
-    return CLIENT_DASH_ROWS.filter((row) => clientAoSet.has(row.deliveryManager));
-  }, [selectedClientAOs, clientAoSet]);
+    if (!selectedClientAOs.length) return clientRowsByChartFiltersNoAO;
+    return clientRowsByChartFiltersNoAO.filter((row) => clientAoSet.has(row.deliveryManager));
+  }, [selectedClientAOs, clientAoSet, clientRowsByChartFiltersNoAO]);
 
   const clientAccountProjectData = useMemo(
     () => buildAccountProjectTypeRows(clientFilteredRows, clientAccountOptions),
@@ -1123,19 +1163,9 @@ function App() {
     [clientFilteredRows, clientCountryOptions],
   );
 
-  const clientProjectTypeData = useMemo(
-    () => buildSimpleCountRows(clientFilteredRows, "projectType", CLIENT_PROJECT_TYPES),
-    [clientFilteredRows],
-  );
-
-  const clientProjectManagerData = useMemo(
-    () => buildSimpleCountRows(clientFilteredRows, "projectManager", clientProjectManagerOptions),
-    [clientFilteredRows, clientProjectManagerOptions],
-  );
-
   const clientAoPieData = useMemo(
-    () => buildAoAccountPieRows(CLIENT_DASH_ROWS, clientAOOptions),
-    [clientAOOptions],
+    () => buildAoAccountPieRows(clientRowsByChartFiltersNoAO, clientAOOptions),
+    [clientRowsByChartFiltersNoAO, clientAOOptions],
   );
 
   const clientChartAccountAxisWidth = useMemo(() => {
@@ -1147,6 +1177,15 @@ function App() {
     () => Math.max(320, clientAccountProjectData.length * 28),
     [clientAccountProjectData.length],
   );
+
+  const selectedClientAccountNameSet = useMemo(() => {
+    const set = new Set();
+    for (const item of selectedClientAccountPairs) {
+      const accountName = String(item).split("||")[0];
+      if (accountName) set.add(accountName);
+    }
+    return set;
+  }, [selectedClientAccountPairs]);
 
   const hasClientTypeClient = useMemo(
     () => clientAccountProjectData.some((row) => row.client > 0),
@@ -1174,11 +1213,6 @@ function App() {
     const maxLen = clientCountryData.reduce((max, item) => Math.max(max, item.name.length), 0);
     return Math.max(110, Math.min(220, maxLen * 8));
   }, [clientCountryData]);
-
-  const clientPmAxisWidth = useMemo(() => {
-    const maxLen = clientProjectManagerData.reduce((max, item) => Math.max(max, item.name.length), 0);
-    return Math.max(140, Math.min(240, maxLen * 8));
-  }, [clientProjectManagerData]);
 
   const dropdownFiltered = useMemo(() => {
     let rows = DATA;
@@ -1583,6 +1617,21 @@ function App() {
   }, [clientAOOptions]);
 
   useEffect(() => {
+    const valid = new Set(clientIndustryOptions);
+    setSelectedClientIndustries((prev) => prev.filter((item) => valid.has(item)));
+  }, [clientIndustryOptions]);
+
+  useEffect(() => {
+    const valid = new Set(clientCountryOptions);
+    setSelectedClientCountries((prev) => prev.filter((item) => valid.has(item)));
+  }, [clientCountryOptions]);
+
+  useEffect(() => {
+    const valid = new Set(clientAccountPairOptions);
+    setSelectedClientAccountPairs((prev) => prev.filter((item) => valid.has(item)));
+  }, [clientAccountPairOptions]);
+
+  useEffect(() => {
     setPage(1);
   }, [
     tableRows.length,
@@ -1843,8 +1892,73 @@ function App() {
     });
   };
 
+  const toggleClientIndustry = (industryName) => {
+    setSelectedClientIndustries((prev) => {
+      const set = new Set(prev);
+      if (set.has(industryName)) set.delete(industryName);
+      else set.add(industryName);
+      return [...set];
+    });
+  };
+
+  const toggleClientCountry = (countryName) => {
+    setSelectedClientCountries((prev) => {
+      const set = new Set(prev);
+      if (set.has(countryName)) set.delete(countryName);
+      else set.add(countryName);
+      return [...set];
+    });
+  };
+
+  const toggleClientAccountPair = (accountName, projectType) => {
+    const key = clientPairKey(accountName, projectType);
+    setSelectedClientAccountPairs((prev) => {
+      const set = new Set(prev);
+      if (set.has(key)) set.delete(key);
+      else set.add(key);
+      return [...set];
+    });
+  };
+
+  const handleClientAccountAxisClick = (accountName) => {
+    const row = clientAccountProjectData.find((item) => item.name === accountName);
+    if (!row) return;
+    const keys = CLIENT_PROJECT_TYPES
+      .filter((projectType) => row[PROJECT_TYPE_TO_KEY[projectType]] > 0)
+      .map((projectType) => clientPairKey(accountName, projectType));
+    if (!keys.length) return;
+    setSelectedClientAccountPairs((prev) => {
+      const set = new Set(prev);
+      const allSelected = keys.every((item) => set.has(item));
+      if (allSelected) keys.forEach((item) => set.delete(item));
+      else keys.forEach((item) => set.add(item));
+      return [...set];
+    });
+  };
+
+  const getClientAccountCellStyle = (accountName, projectType, baseColor) => {
+    if (!selectedClientAccountPairs.length) {
+      return {
+        fill: baseColor,
+        opacity: 1,
+        stroke: "transparent",
+        strokeWidth: 0,
+      };
+    }
+    const selected = clientAccountPairSet.has(clientPairKey(accountName, projectType));
+    return {
+      fill: baseColor,
+      opacity: selected ? 1 : 0.22,
+      stroke: selected ? "#0f172a" : "transparent",
+      strokeWidth: selected ? 1.2 : 0,
+    };
+  };
+
   const clearClientFilters = () => {
     setSelectedClientAOs([]);
+    setSelectedClientIndustries([]);
+    setSelectedClientCountries([]);
+    setSelectedClientAccountPairs([]);
   };
 
   const clearChartSelection = () => {
@@ -2638,9 +2752,12 @@ function App() {
           <button
             className="btn"
             onClick=${clearClientFilters}
-            disabled=${selectedClientAOs.length === 0}
+            disabled=${!selectedClientAOs.length
+              && !selectedClientIndustries.length
+              && !selectedClientCountries.length
+              && !selectedClientAccountPairs.length}
           >
-            Clear AO Filter
+            Clear Client Filters
           </button>
         </section>
 
@@ -2665,6 +2782,12 @@ function App() {
                       dataKey="name"
                       width=${clientChartAccountAxisWidth}
                       interval=${0}
+                      tick=${(props) =>
+                        html`<${AxisTick}
+                          ...${props}
+                          onAxisClick=${handleClientAccountAxisClick}
+                          isSelected=${selectedClientAccountNameSet.has(props.payload?.value)}
+                        />`}
                     />
                     <${Tooltip}
                       cursor=${false}
@@ -2687,6 +2810,15 @@ function App() {
                             animationEasing="ease-in-out"
                           >
                             <${LabelList} dataKey="client" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                            ${clientAccountProjectData.map(
+                              (row) =>
+                                html`<${Cell}
+                                  key=${`client-account-client-${row.name}`}
+                                  cursor="pointer"
+                                  ...${getClientAccountCellStyle(row.name, "Client", PROJECT_TYPE_COLORS.client)}
+                                  onClick=${() => toggleClientAccountPair(row.name, "Client")}
+                                />`,
+                            )}
                           </${Bar}>
                         `
                       : null}
@@ -2702,6 +2834,15 @@ function App() {
                             animationEasing="ease-in-out"
                           >
                             <${LabelList} dataKey="internal" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                            ${clientAccountProjectData.map(
+                              (row) =>
+                                html`<${Cell}
+                                  key=${`client-account-internal-${row.name}`}
+                                  cursor="pointer"
+                                  ...${getClientAccountCellStyle(row.name, "Internal", PROJECT_TYPE_COLORS.internal)}
+                                  onClick=${() => toggleClientAccountPair(row.name, "Internal")}
+                                />`,
+                            )}
                           </${Bar}>
                         `
                       : null}
@@ -2720,6 +2861,19 @@ function App() {
                               dataKey="supportDevelopment"
                               content=${(props) => html`<${SegmentValueLabel} ...${props} />`}
                             />
+                            ${clientAccountProjectData.map(
+                              (row) =>
+                                html`<${Cell}
+                                  key=${`client-account-support-${row.name}`}
+                                  cursor="pointer"
+                                  ...${getClientAccountCellStyle(
+                                    row.name,
+                                    "Support Development",
+                                    PROJECT_TYPE_COLORS.supportDevelopment,
+                                  )}
+                                  onClick=${() => toggleClientAccountPair(row.name, "Support Development")}
+                                />`,
+                            )}
                           </${Bar}>
                         `
                       : null}
@@ -2735,6 +2889,15 @@ function App() {
                             animationEasing="ease-in-out"
                           >
                             <${LabelList} dataKey="training" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                            ${clientAccountProjectData.map(
+                              (row) =>
+                                html`<${Cell}
+                                  key=${`client-account-training-${row.name}`}
+                                  cursor="pointer"
+                                  ...${getClientAccountCellStyle(row.name, "Training", PROJECT_TYPE_COLORS.training)}
+                                  onClick=${() => toggleClientAccountPair(row.name, "Training")}
+                                />`,
+                            )}
                           </${Bar}>
                         `
                       : null}
@@ -2818,6 +2981,12 @@ function App() {
                     dataKey="name"
                     width=${clientIndustryAxisWidth}
                     interval=${0}
+                    tick=${(props) =>
+                      html`<${AxisTick}
+                        ...${props}
+                        onAxisClick=${toggleClientIndustry}
+                        isSelected=${clientIndustrySet.has(props.payload?.value)}
+                      />`}
                   />
                   <${Tooltip}
                     content=${(props) => html`<${CountTooltip} ...${props} />`}
@@ -2826,13 +2995,29 @@ function App() {
                   <${Bar}
                     dataKey="count"
                     name="Accounts"
-                    fill="#0EA5A5"
+                    fill="#14B8A6"
                     radius=${[0, 8, 8, 0]}
                     isAnimationActive=${true}
                     animationDuration=${760}
                     animationEasing="ease-in-out"
                   >
                     <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                    ${clientIndustryData.map(
+                      (row) =>
+                        html`<${Cell}
+                          key=${`client-industry-${row.name}`}
+                          cursor="pointer"
+                          fill="#14B8A6"
+                          opacity=${selectedClientIndustries.length
+                            ? clientIndustrySet.has(row.name)
+                              ? 1
+                              : 0.22
+                            : 1}
+                          stroke=${clientIndustrySet.has(row.name) ? "#0f172a" : "transparent"}
+                          strokeWidth=${clientIndustrySet.has(row.name) ? 1.2 : 0}
+                          onClick=${() => toggleClientIndustry(row.name)}
+                        />`,
+                    )}
                   </${Bar}>
                 </${BarChart}>
               </${ResponsiveContainer}>
@@ -2855,6 +3040,12 @@ function App() {
                     dataKey="name"
                     width=${clientCountryAxisWidth}
                     interval=${0}
+                    tick=${(props) =>
+                      html`<${AxisTick}
+                        ...${props}
+                        onAxisClick=${toggleClientCountry}
+                        isSelected=${clientCountrySet.has(props.payload?.value)}
+                      />`}
                   />
                   <${Tooltip}
                     content=${(props) => html`<${CountTooltip} ...${props} />`}
@@ -2863,87 +3054,35 @@ function App() {
                   <${Bar}
                     dataKey="count"
                     name="Accounts"
-                    fill="#4F46E5"
+                    fill="#3B82F6"
                     radius=${[0, 8, 8, 0]}
                     isAnimationActive=${true}
                     animationDuration=${760}
                     animationEasing="ease-in-out"
                   >
                     <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
+                    ${clientCountryData.map(
+                      (row) =>
+                        html`<${Cell}
+                          key=${`client-country-${row.name}`}
+                          cursor="pointer"
+                          fill="#3B82F6"
+                          opacity=${selectedClientCountries.length
+                            ? clientCountrySet.has(row.name)
+                              ? 1
+                              : 0.22
+                            : 1}
+                          stroke=${clientCountrySet.has(row.name) ? "#0f172a" : "transparent"}
+                          strokeWidth=${clientCountrySet.has(row.name) ? 1.2 : 0}
+                          onClick=${() => toggleClientCountry(row.name)}
+                        />`,
+                    )}
                   </${Bar}>
                 </${BarChart}>
               </${ResponsiveContainer}>
             </div>
           </section>
 
-          <section className="panel client-mini-chart">
-            <h3 className="mini-title client-mini-title">Project Type Distribution</h3>
-            <div style=${{ width: "100%", height: "270px" }}>
-              <${ResponsiveContainer} width="100%" height="100%">
-                <${BarChart}
-                  layout="vertical"
-                  data=${clientProjectTypeData}
-                  margin=${{ top: 10, right: 16, left: 6, bottom: 8 }}
-                >
-                  <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <${XAxis} type="number" allowDecimals=${false} />
-                  <${YAxis} type="category" dataKey="name" width=${170} interval=${0} />
-                  <${Tooltip}
-                    content=${(props) => html`<${CountTooltip} ...${props} />`}
-                    cursor=${false}
-                  />
-                  <${Bar}
-                    dataKey="count"
-                    name="Projects"
-                    fill="#F97316"
-                    radius=${[0, 8, 8, 0]}
-                    isAnimationActive=${true}
-                    animationDuration=${760}
-                    animationEasing="ease-in-out"
-                  >
-                    <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
-                  </${Bar}>
-                </${BarChart}>
-              </${ResponsiveContainer}>
-            </div>
-          </section>
-
-          <section className="panel client-mini-chart">
-            <h3 className="mini-title client-mini-title">Project Manager Wise Projects</h3>
-            <div style=${{ width: "100%", height: "270px" }}>
-              <${ResponsiveContainer} width="100%" height="100%">
-                <${BarChart}
-                  layout="vertical"
-                  data=${clientProjectManagerData}
-                  margin=${{ top: 10, right: 16, left: 6, bottom: 8 }}
-                >
-                  <${CartesianGrid} strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <${XAxis} type="number" allowDecimals=${false} />
-                  <${YAxis}
-                    type="category"
-                    dataKey="name"
-                    width=${clientPmAxisWidth}
-                    interval=${0}
-                  />
-                  <${Tooltip}
-                    content=${(props) => html`<${CountTooltip} ...${props} />`}
-                    cursor=${false}
-                  />
-                  <${Bar}
-                    dataKey="count"
-                    name="Projects"
-                    fill="#8B5CF6"
-                    radius=${[0, 8, 8, 0]}
-                    isAnimationActive=${true}
-                    animationDuration=${760}
-                    animationEasing="ease-in-out"
-                  >
-                    <${LabelList} dataKey="count" content=${(props) => html`<${SegmentValueLabel} ...${props} />`} />
-                  </${Bar}>
-                </${BarChart}>
-              </${ResponsiveContainer}>
-            </div>
-          </section>
         </section>
       </div>
 
